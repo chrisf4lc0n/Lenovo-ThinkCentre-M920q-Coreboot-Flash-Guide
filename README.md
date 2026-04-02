@@ -32,9 +32,16 @@ Tested and verified guide for flashing coreboot on the Lenovo ThinkCentre M920 T
 
 ### Known Issues
 
+- **Non-T (65W+) CPUs do not boot under coreboot on M920q** — The M920q VRM lacks a power phase (PU404) present on the M920x/P330 Tiny. Non-T CPUs (i7-8700, i9-9900, etc.) fail during early FSP init due to insufficient VRM current delivery. The stock Lenovo BIOS has vendor-specific workarounds; coreboot uses Intel reference FSP values which expect spec-compliant VRM. **Use T-series (35W) CPUs only** (i3-8100T, i5-8500T, i7-8700T, i9-9900T, etc.). See the M920x/P330 section below for 65W support
 - **Front audio jacks do not work** (upstream coreboot bug)
 - **DIMM2 slot does not work** — [coreboot bug #592](https://ticket.coreboot.org/issues/592). Only DIMM1 is usable. Use a single larger SO-DIMM if more RAM is needed
 - **ME Communication Controller (PCI 16.0) remains visible** with HAP bit set — this is normal hardware enumeration, the ME firmware is disabled
+
+### M920x / P330 Tiny — 65W CPU Support
+
+The M920q, M920x, M720q, and ThinkStation P330 Tiny all share the same base motherboard (EQ370 NM-B551 / IQ3X0IL) with different SMD component populations. The M920x and P330 Tiny have an additional VRM phase (PU404) and associated passives that allow 65W CPU operation.
+
+If you need a 65W non-T CPU with coreboot, use an **M920x or P330 Tiny** instead of the M920q. The same coreboot ROM works on all variants — no rebuild needed. The P330 Tiny is not explicitly listed in the coreboot board documentation but boots with the M920q/M920x image since it shares the identical board.
 
 ---
 
@@ -188,35 +195,25 @@ The ME binary must be the **original unmodified** version extracted from your du
 
 ---
 
-## Step 3: Power Limits (Optional — for non-T CPUs)
+## Step 3: Power Limits (T-series CPUs only on M920q)
 
-If installing a 65W or 95W CPU (e.g., i7-8700, i9-9900) into the M920q, the 35W cooler cannot handle the full TDP. Coreboot can enforce power limits via the devicetree.
+> **Warning: Non-T (65W+) CPUs do not work on the M920q under coreboot.** The M920q's VRM cannot deliver sufficient current for 65W CPUs during FSP init. This has been tested and confirmed with the i7-8700 (65W) — the system fails to complete memory training. The stock Lenovo BIOS includes vendor workarounds that allow marginal operation, but coreboot's FSP integration uses Intel reference values which require spec-compliant VRM. Use **T-series (35W) CPUs only** on the M920q. For 65W CPUs, use an M920x or P330 Tiny (same coreboot ROM, extra VRM phase on board).
 
-Edit `src/mainboard/lenovo/m720q_m920q/devicetree.cb`. Change:
-
-```c
-register "power_limits_config" = "{
-    .tdp_pl2_override = 65,
-}"
-```
-
-To:
+For T-series CPUs, the stock devicetree power limits work as-is. If you want to further constrain power (e.g., running a 35W CPU at 25W for silence), edit `src/mainboard/lenovo/m720q_m920q/devicetree.cb`:
 
 ```c
 register "power_limits_config" = "{
-    .tdp_pl1_override = 35,
-    .tdp_pl2_override = 45,
+    .tdp_pl1_override = 25,
+    .tdp_pl2_override = 35,
 }"
 ```
 
 | Setting | Value | Purpose |
 |---------|-------|---------|
-| `tdp_pl1_override` | 35 | Sustained power limit in watts (M920q cooler design envelope) |
-| `tdp_pl2_override` | 45 | Short burst turbo limit in watts |
+| `tdp_pl1_override` | Custom watts | Sustained power limit |
+| `tdp_pl2_override` | Custom watts | Short burst turbo limit |
 
 > **Important:** Both `tdp_pl1_override` and `tdp_pl2_override` must be explicitly set. If only one is specified, the other defaults to 0 (unlimited). These values are written to MSR `0x610` (`MSR_PKG_POWER_LIMIT`) during boot.
-
-If using a native 35W T-series CPU, you can leave the stock devicetree values.
 
 ---
 
@@ -443,6 +440,10 @@ CONFIG_EDK2_UEFIPAYLOAD=y
 CONFIG_SMMSTORE=y
 CONFIG_SMMSTORE_V2=y
 
+# iPXE network boot — adds "Network Boot" option to edk2 boot menu
+CONFIG_EDK2_ENABLE_IPXE=y
+CONFIG_EDK2_IPXE_OPTION_NAME="Network Boot"
+
 # CONFIG_RUN_FSP_GOP is not set
 
 CONFIG_CONSOLE_SERIAL=y
@@ -464,15 +465,19 @@ CONFIG_DEFAULT_CONSOLE_LOGLEVEL=7
 | Platform flag | `-p cnl` for all ifdtool commands |
 | Power limit verify | `sudo rdmsr 0x610` (not sysfs) |
 | DIMM | Slot 1 only (bug #592) |
-| CPU whitelist | None — any LGA 1151 Coffee Lake / CFL-R CPU works |
+| CPU | **T-series (35W) only on M920q** — 65W CPUs fail under coreboot (VRM limitation) |
+| 65W CPU support | Use M920x or P330 Tiny instead (same coreboot ROM, extra VRM phase) |
+| iPXE / PXE boot | `CONFIG_EDK2_ENABLE_IPXE=y` in defconfig |
 | Boot Guard | Not fused — no deguard needed |
 | ME disable | HAP bit only — do NOT use me_cleaner (ME v12) |
+| Same board family | M720q, M920q, M920x, P330 Tiny — all EQ370 NM-B551 |
 
 ## References
 
 - [Coreboot M920q documentation](https://doc.coreboot.org/mainboard/lenovo/m920q.html)
 - [Gerrit #80609 — original M920q port](https://review.coreboot.org/c/coreboot/+/80609) by Maciej Pijanowski (3mdeb)
 - [Bug #592 — DIMM2 not working](https://ticket.coreboot.org/issues/592)
+- [TinySecrets — M920q/M920x VRM differences](https://github.com/a-little-wifi/TinySecrets) (documents hardware differences between board variants)
 - [Coreboot FAQ — ME and HAP bit](https://doc.coreboot.org/getting_started/faq.html)
 - [flashprog](https://flashprog.org/)
 - [MrChromebox edk2 features](https://docs.mrchromebox.tech/docs/faq.html)
