@@ -194,29 +194,7 @@ The ME binary must be the **original unmodified** version extracted from your du
 
 ---
 
-## Step 3: Power Limits (T-series CPUs only on M920q)
-
-> **Warning: Non-T (65W+) CPUs do not work on the M920q under coreboot.** The M920q's VRM cannot deliver sufficient current for 65W CPUs during FSP init. This has been tested and confirmed with the i7-8700 (65W) — the system fails to complete memory training. The stock Lenovo BIOS includes vendor workarounds that allow marginal operation, but coreboot's FSP integration uses Intel reference values which require spec-compliant VRM. Use **T-series (35W) CPUs only** on the M920q. For 65W CPUs, use an M920x or P330 Tiny (same coreboot ROM, extra VRM phase on board).
-
-For T-series CPUs, the stock devicetree power limits work as-is. If you want to further constrain power (e.g., running a 35W CPU at 25W for silence), edit `src/mainboard/lenovo/m720q_m920q/devicetree.cb`:
-
-```c
-register "power_limits_config" = "{
-    .tdp_pl1_override = 25,
-    .tdp_pl2_override = 35,
-}"
-```
-
-| Setting | Value | Purpose |
-|---------|-------|---------|
-| `tdp_pl1_override` | Custom watts | Sustained power limit |
-| `tdp_pl2_override` | Custom watts | Short burst turbo limit |
-
-> **Important:** Both `tdp_pl1_override` and `tdp_pl2_override` must be explicitly set. If only one is specified, the other defaults to 0 (unlimited). These values are written to MSR `0x610` (`MSR_PKG_POWER_LIMIT`) during boot.
-
----
-
-## Step 4: Configure and Build
+## Step 3: Configure and Build
 
 ### Install Build Dependencies
 
@@ -268,7 +246,7 @@ ls -la build/coreboot.rom
 
 ---
 
-## Step 5: Split and Flash
+## Step 4: Split and Flash
 
 ### Split the ROM
 
@@ -314,12 +292,12 @@ sha256sum coreboot_bios2.rom verify_bios2.bin
 
 ---
 
-## Step 6: First Boot
+## Step 5: First Boot
 
 1. **Install RAM in DIMM1 only** — DIMM2 does not work under coreboot ([bug #592](https://ticket.coreboot.org/issues/592))
 2. Connect a display via HDMI (try DisplayPort if no output on HDMI)
 3. Power on and **wait up to 2 minutes** — the first boot performs memory training with no display output. Subsequent boots are fast (MRC cache)
-4. The edk2 splash screen (coreboot hare) should appear. Press **F2** to enter the boot menu
+4. The edk2 splash screen (coreboot hare) should appear. Press **Esc** to enter the boot menu
 
 ### If It Doesn't Boot
 
@@ -330,28 +308,7 @@ sha256sum coreboot_bios2.rom verify_bios2.bin
 
 ---
 
-## Step 7: Post-Boot Verification
-
-### Power Limits
-
-The sysfs powercap interface (`/sys/class/powercap/intel-rapl:0/constraint_*`) **does not reliably report PL2** on this platform. Use MSR `0x610` directly:
-
-```bash
-sudo apt install msr-tools
-sudo modprobe msr
-sudo rdmsr 0x610
-```
-
-This returns a 64-bit hex value:
-
-| Bits | Field | Expected (35W/45W config) |
-|------|-------|---------------------------|
-| 14:0 | PL1 power limit | `0x118` (280 × 0.125W = 35W) |
-| 15 | PL1 enable | `1` |
-| 46:32 | PL2 power limit | `0x168` (360 × 0.125W = 45W) |
-| 47 | PL2 enable | `1` |
-
-Verified output: `0001816800dd8118` — both PL1 (35W) and PL2 (45W) active and enabled.
+## Step 6: Post-Boot Verification
 
 ### ME Status
 
@@ -366,16 +323,6 @@ mei_hdcp 0000:00:16.0-b638ab7e-94e2-4ea2-a552-d1c54b627f04: bound 0000:00:02.0 (
 ```
 
 There should be **no** `mei_me` driver initialising and no AMT-related messages. The HECI controller at `00:16.0` will still appear in `lspci` as `Communication controller: Intel Corporation Cannon Lake PCH HECI Controller` — this is normal hardware enumeration. HAP prevents the ME firmware from actively running while the PCH hardware remains visible on the PCI bus.
-
-### Stress Test
-
-```bash
-sudo apt install stress-ng linux-tools-common
-sudo turbostat --show Core,MHz,Busy%,PkgWatt,PkgTmp --interval 2 \
-  stress-ng --cpu $(nproc) --timeout 120
-```
-
-`PkgWatt` should spike briefly toward 45W (PL2) then settle at ≤35W (PL1) within ~30 seconds.
 
 ---
 
@@ -415,7 +362,9 @@ This writes only the BIOS region, leaving the descriptor, ME, and GbE regions un
 #
 # Payload: edk2 (MrChromebox) — PXE, UEFI Shell, TPM 2.0, Secure Boot, NVRAM
 # ME: HAP bit set in descriptor (no me_cleaner)
-# Power: PL1=35W, PL2=45W (edit devicetree.cb — see Step 3)
+#
+# CPU: T-series (35W) ONLY on M920q — 65W CPUs fail (VRM limitation)
+#      For 65W CPUs use M920x (tested) or P330 Tiny (same board, untested)
 #
 # Known issues:
 #   - DIMM2 slot broken (bug #592) — use DIMM1 only
@@ -461,8 +410,6 @@ CONFIG_DEFAULT_CONSOLE_LOGLEVEL=7
 | BIOS2 split | `dd if=coreboot.rom of=bios2.rom bs=8M skip=2` |
 | BIOS2 quirk | /WP + /HOLD must be held HIGH externally |
 | HAP bit | `ifdtool -p cnl -M 1 descriptor.bin` |
-| Platform flag | `-p cnl` for all ifdtool commands |
-| Power limit verify | `sudo rdmsr 0x610` (not sysfs) |
 | DIMM | Slot 1 only (bug #592) |
 | CPU | **T-series (35W) only on M920q** — 65W CPUs fail under coreboot (VRM limitation) |
 | 65W CPU support | Use M920x (tested) or P330 Tiny (same board, untested with coreboot) |
