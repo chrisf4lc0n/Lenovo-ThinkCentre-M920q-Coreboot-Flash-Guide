@@ -64,8 +64,7 @@ Total ROM size: **24 MiB** (16 + 8).
 
 - Raspberry Pi (3/4/5) with SPI enabled and [flashprog](https://flashprog.org/) installed, or any other SPI programmer providing **3.3V logic levels**
 - SOIC-8 test clip (Pomona 5250 or equivalent)
-- Dupont jumper wires
-- IC hooks (for holding /WP and /HOLD high on BIOS2)
+- Dupont jumper wires (include a splitter from any RPi 3.3V pin to Pomona clip pins 3 and 7 for BIOS2 /WP and /HOLD pull-ups)
 
 > **Warning:** Do not use a CH341A programmer unless you have confirmed it uses 3.3V logic on data lines. Many clones output 5V on MOSI/MISO/CLK which can damage the SPI flash and the PCH.
 
@@ -105,7 +104,7 @@ sha256sum m920q_bios1_dump*.bin
 
 ### BIOS2 (8 MiB)
 
-Move clip to BIOS2. **Hold /WP (pin 3) and /HOLD (pin 7) HIGH** (tie to 3.3V with IC hooks).
+Move clip to BIOS2. **Hold /WP (pin 3) and /HOLD (pin 7) HIGH** (split a Dupont wire from any RPi 3.3V pin to both pins on the Pomona clip).
 
 ```bash
 sudo flashprog -p linux_spi:dev=/dev/spidev0.0,spispeed=1000 \
@@ -301,7 +300,7 @@ sha256sum coreboot_bios1.rom verify_bios1.bin
 
 ### Flash BIOS2 (8 MiB)
 
-Move clip to BIOS2. **Hold /WP (pin 3) and /HOLD (pin 7) HIGH.**
+Move clip to BIOS2. **Hold /WP (pin 3) and /HOLD (pin 7) HIGH** (same 3.3V splitter as reading).
 
 ```bash
 sudo flashprog -p linux_spi:dev=/dev/spidev0.0,spispeed=1000 \
