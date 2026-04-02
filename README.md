@@ -1,6 +1,6 @@
 # Lenovo ThinkCentre M920q — Coreboot Flash Guide
 
-Tested and verified guide for flashing coreboot on the Lenovo ThinkCentre M920 Tiny (M920q / M920x).
+Tested and verified guide for flashing coreboot on the Lenovo ThinkCentre M920q. Should also work on the M720q, M920x, and ThinkStation P330 Tiny (same board, untested).
 
 ## Overview
 
@@ -37,11 +37,18 @@ Tested and verified guide for flashing coreboot on the Lenovo ThinkCentre M920 T
 - **DIMM2 slot does not work** — [coreboot bug #592](https://ticket.coreboot.org/issues/592). Only DIMM1 is usable. Use a single larger SO-DIMM if more RAM is needed
 - **ME Communication Controller (PCI 16.0) remains visible** with HAP bit set — this is normal hardware enumeration, the ME firmware is disabled
 
-### M920x / P330 Tiny — 65W CPU Support
+### Board Variants — M720q / M920q / M920x / P330 Tiny
 
-The M920q, M920x, M720q, and ThinkStation P330 Tiny all share the same base motherboard (EQ370 NM-B551 / IQ3X0IL) with different SMD component populations. The M920x and P330 Tiny have an additional VRM phase (PU404) and associated passives that allow 65W CPU operation.
+The M920q, M920x, M720q, and ThinkStation P330 Tiny all share the same base motherboard (EQ370 NM-B551 / IQ3X0IL) with different SMD component populations. The same coreboot ROM should work on all four variants. Only the **M920q has been tested** — the others should work in principle but are unconfirmed.
 
-If you need a 65W non-T CPU with coreboot, use an **M920x or P330 Tiny** instead of the M920q. The same coreboot ROM works on the M920x (tested). The P330 Tiny shares the identical board and should work with the same image, but this has **not been tested** — if you try it, please report back.
+The M920x and P330 Tiny have an additional VRM phase (PU404) and associated passives that allow 65W non-T CPU operation. The M720q has the same VRM limitation as the M920q — T-series CPUs only.
+
+| Variant | VRM | 65W CPU | Coreboot Tested |
+|---------|-----|---------|-----------------|
+| **M920q** | Standard | No — T-series only | **Yes** |
+| M720q | Standard | No — T-series only | No (should work) |
+| M920x | Extra phase (PU404) | Yes | No (should work) |
+| P330 Tiny | Extra phase (PU404) | Yes | No (should work) |
 
 ---
 
@@ -364,7 +371,7 @@ This writes only the BIOS region, leaving the descriptor, ME, and GbE regions un
 # ME: HAP bit set in descriptor (no me_cleaner)
 #
 # CPU: T-series (35W) ONLY on M920q — 65W CPUs fail (VRM limitation)
-#      For 65W CPUs use M920x (tested) or P330 Tiny (same board, untested)
+#      For 65W CPUs use M920x or P330 Tiny (untested, same board + extra VRM)
 #
 # Known issues:
 #   - DIMM2 slot broken (bug #592) — use DIMM1 only
@@ -412,11 +419,11 @@ CONFIG_DEFAULT_CONSOLE_LOGLEVEL=7
 | HAP bit | `ifdtool -p cnl -M 1 descriptor.bin` |
 | DIMM | Slot 1 only (bug #592) |
 | CPU | **T-series (35W) only on M920q** — 65W CPUs fail under coreboot (VRM limitation) |
-| 65W CPU support | Use M920x (tested) or P330 Tiny (same board, untested with coreboot) |
+| 65W CPU support | Use M920x or P330 Tiny (extra VRM phase — untested with coreboot) |
 | iPXE / PXE boot | `CONFIG_EDK2_ENABLE_IPXE=y` in defconfig |
 | Boot Guard | Not fused — no deguard needed |
 | ME disable | HAP bit only — do NOT use me_cleaner (ME v12) |
-| Same board family | M720q, M920q, M920x, P330 Tiny — all EQ370 NM-B551 |
+| Same board family | M720q, M920q (tested), M920x, P330 Tiny — all EQ370 NM-B551 |
 
 ## References
 
