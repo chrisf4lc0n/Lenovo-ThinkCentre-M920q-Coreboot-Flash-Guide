@@ -319,7 +319,7 @@ sha256sum coreboot_bios2.rom verify_bios2.bin
 1. **Install RAM in DIMM1 only** — DIMM2 does not work under coreboot ([bug #592](https://ticket.coreboot.org/issues/592))
 2. Connect a display via HDMI (try DisplayPort if no output on HDMI)
 3. Power on and **wait up to 2 minutes** — the first boot performs memory training with no display output. Subsequent boots are fast (MRC cache)
-4. The edk2 splash screen (coreboot hare) should appear. Press **Esc** to enter the boot menu
+4. The edk2 splash screen (coreboot hare) should appear. Press **F2** to enter the boot menu
 
 ### If It Doesn't Boot
 
